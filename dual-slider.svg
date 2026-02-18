@@ -22,10 +22,10 @@
      inkscape:pageopacity="0.0"
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
-     inkscape:document-units="mm"
+     inkscape:document-units="px"
      inkscape:zoom="2.8534796"
-     inkscape:cx="174.87421"
-     inkscape:cy="157.52697"
+     inkscape:cx="175.04944"
+     inkscape:cy="144.9108"
      inkscape:window-width="1920"
      inkscape:window-height="1132"
      inkscape:window-x="0"
@@ -58,6 +58,14 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1">
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.529;fill-opacity:1"
+       id="rect2"
+       width="100.60451"
+       height="75.012939"
+       x="0.55633831"
+       y="0.74178439"
+       ry="1.2861203" />
     <path
        style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:0.529167"
        d="M 18.468315,9.3759122 48.674536,39.582133 17.616631,70.640037"

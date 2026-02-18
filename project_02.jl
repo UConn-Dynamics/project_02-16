@@ -7,7 +7,7 @@ using InteractiveUtils
 # ╔═╡ f17103ea-06bf-11f1-a2b0-79e68ed152eb
 md"""# Project_02 - Multibody kinematic modeling
 
-[Dual slider kinematics project](./dual-slider.svg)
+![Dual slider kinematics project](https://raw.githubusercontent.com/cooperrc/me5180-project_02/refs/heads/main/dual-slider.svg)
 
 In this project, a rigid bar is connected to two sliding pistons along
 the diagonal tracks. As the pistons move along the tracks, the rigid bar rotates at a constant rate, $\dot{\theta}_3 = 2~rad/s$. The figure above has three _relative_ ccoordinate systems that move with the bodies:
