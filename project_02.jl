@@ -34,8 +34,7 @@ In this project, you need to
 md"""
 # Things That Need to be Done
 
-* Solve for velocities $\dot{q}$ and accelerations $\ddot{q}$
-* Plot positions, velocities, and accelerations as functions of time.
+* Fix up the acceleration math because I think there's a cleaner way to solve there rather than doing one step, reshaping, then another very strangely.
 * Fully parameterize the system, allowing for variable center slot position (rather than just held at 0,0), and different slot angles (to show different ellipses rather than just circles) <== this one is pretty hard cuz you'll have to go back through the prismatic equations and modify them.
 * Animate / Plot several different parameters once the system is parameterized (do one with a large l3 and small angle / big angle and analyze the system)
 * Improve animation to look closer to the problem statement image (larger tracks, actual blocks and bar, etc.)
@@ -67,9 +66,19 @@ R_y^3 &
 begin
 	@independent_variables t
 	@parameters l3 theta3_dot
-	@variables Rx1(t), Ry1(t), theta1(t), Rx2(t), Ry2(t), theta2(t), Rx3(t), Ry3(t), theta3(t)
+	@variables q[1:9] q_dot[1:9]
 
-	q = [Rx1; Ry1; theta1; Rx2; Ry2; theta2; Rx3; Ry3; theta3]
+	const Rx1 = 1
+	const Ry1 = 2
+	const theta1 = 3
+	const Rx2 = 4
+	const Ry2 = 5
+	const theta2 = 6
+	const Rx3 = 7
+	const Ry3 = 8
+	const theta3 = 9
+	
+	params = [l3, theta3_dot]
 end
 
 # ╔═╡ 8ee16c64-3111-44e5-86e6-3731cfbe753a
@@ -204,22 +213,22 @@ R_x^2 + R_y^2 \\
 """
 
 # ╔═╡ fb181be8-310b-4482-8444-ae07aae08ebc
-C = [Rx1-Rx3+l3/2*cos(theta3);
-	 Ry1-Ry3+l3/2*sin(theta3);
-	 Rx2-Rx3-l3/2*cos(theta3);
-	 Ry2-Ry3-l3/2*sin(theta3);
-	 theta1-pi/4;
-	 theta2+pi/4;
-	 -Rx1+Ry1;
-	 Rx2+Ry2;
-	 theta3-pi/2-theta3_dot*t
+C = [q[Rx1]-q[Rx3]+l3/2*cos(q[theta3]);
+	 q[Ry1]-q[Ry3]+l3/2*sin(q[theta3]);
+	 q[Rx2]-q[Rx3]-l3/2*cos(q[theta3]);
+	 q[Ry2]-q[Ry3]-l3/2*sin(q[theta3]);
+	 q[theta1]-pi/4;
+	 q[theta2]+pi/4;
+	 -q[Rx1]+q[Ry1];
+	 q[Rx2]+q[Ry2];
+	 q[theta3]-pi/2-theta3_dot*t
 	]
 
-# ╔═╡ 0b970fb1-5aa5-4cd2-86a6-a96331b89cc2
-begin
-	params = [l3, theta3_dot]
-	f_expr = build_function(C, q, params, t; expression=Val(false))[1]
+# ╔═╡ d0916324-f83f-4625-a3cf-cd915f67f668
+function compute_positions(pval)
 
+	# numerically defining function for solver
+	f_expr = build_function(C, q, params, t; expression=Val(false))[1]
 	function constraints!(F, q, p, tval)
 	    F[:] = f_expr(q, p, tval)
 	end
@@ -227,24 +236,18 @@ begin
 	function make_constraints(tval, pval)
 	    (F, q) -> constraints!(F, q, pval, tval)
 	end
-end
 
-# ╔═╡ d0916324-f83f-4625-a3cf-cd915f67f668
-function solve_system()
-    pval = [0.1, 2.0]
+	# chosen t range (one full revolution of the connecting bar)
     t_final = 2*pi / pval[2]
-
-    # avoid singular start
     ts = range(1e-3, t_final, length=200)
 
-    # exact initial condition (as shown in problem statement)
     q_i = [
         -0.05; -0.05; pi/4;
         -0.05;  0.05; -pi/4;
         -0.05;  0.0;  pi/2
     ]
 
-    solutions = []
+    positions = []
 
     for tval in ts
         f! = make_constraints(tval, pval)
@@ -256,14 +259,172 @@ function solve_system()
         end
 
         q_i = sol.zero
-        push!(solutions, copy(q_i))
+        push!(positions, copy(q_i))
     end
 
-    return solutions
+    return positions
 end
 
-# ╔═╡ 8e668c28-2010-41c1-8880-7f929f90966e
-solution = solve_system()
+# ╔═╡ 264ca81d-612c-4ea9-98cf-df9fb8235899
+md"""
+## Velocity Analysis
+
+We can differentiate the constraint matrix with respect to time to get:
+
+$\frac{d}{dt}C(q,t) = C_q \dot{q} + C_t = 0$
+
+So we can solve the following system for velocities.
+
+$C_q\dot{q} = C_t$
+"""
+
+# ╔═╡ cc50f6b6-436f-4265-80f9-c798681782fe
+Cq = Symbolics.jacobian(C, q)
+
+# ╔═╡ c609bc41-3d96-44a8-afa4-086aa68808e2
+Ct = Symbolics.derivative(C, t)
+
+# ╔═╡ c8384dee-1f8f-4a4b-bf92-02c9580c72e5
+function compute_velocities(positions, pval) 
+	Cq_func = build_function(Cq, q, params; expression=Val(false))[1]
+    Ct_func = build_function(Ct, q, params; expression=Val(false))[1]
+	
+    velocities = Vector{Vector{Float64}}()
+
+    for i in eachindex(positions)
+        Cq_val = Cq_func(positions[i], pval)
+        Ct_val = Ct_func(positions[i], pval)
+        vel_i = -Cq_val \ Ct_val
+        push!(velocities, vel_i)
+    end
+
+    return velocities
+end
+
+# ╔═╡ b512cb1e-6683-43b4-8908-622e5715d32a
+md"""
+## Acceleration Analysis
+To find acceleration we differentiate the expression for velocity.
+
+$\frac{d}{dt}(C_q \dot{q} + C_t) = 0$
+
+This becomes:
+
+$C_q \ddot{q} = Q_d$
+
+Where $Q_d = -(C_q \dot{q})_q \dot{q} - 2C_{q_t} \dot{q} - C_{tt}$
+"""
+
+# ╔═╡ eb4a86c2-f82b-4e05-8ce2-a4b8f124919a
+begin
+	temp1 = Cq * q_dot
+	temp1_col = Symbolics.Array(reshape(collect(temp1), 9, 1))
+	temp2 = Symbolics.jacobian(temp1_col, q)
+	temp3 = -temp2*q_dot
+	Qd1 = Symbolics.Array(reshape(collect(temp3), 9))
+
+	temp4 = -2*Symbolics.derivative(Cq, t)*q_dot
+	Qd2 = Symbolics.Array(reshape(collect(temp4), 9))
+
+	Qd3 = -Symbolics.derivative(Ct, t)
+
+	Qd = Qd1 + Qd2 + Qd3
+end
+
+# ╔═╡ 36b0101c-c348-458d-be44-745ee40fcb6c
+function compute_accelerations(positions, velocities, pval) 
+	Cq_func = build_function(Cq, q, params; expression=Val(false))[1]
+    Qd_func = build_function(Qd, q, q_dot, params; expression=Val(false))[1]
+	 
+    accelerations = Vector{Vector{Float64}}()
+
+    for i in eachindex(positions)
+        Cq_val = Cq_func(positions[i], pval)
+        Qd_val = Qd_func(positions[i], velocities[i], pval)
+        acc_i = vec(Cq_val \ Qd_val)
+        push!(accelerations, acc_i)
+    end
+
+    return accelerations
+end
+
+# ╔═╡ c439916d-e97d-4b97-a486-2d4dcaa73f3d
+function compute_values(pval)
+	positions = compute_positions(pval)
+	velocities = compute_velocities(positions, pval)
+	accelerations = compute_accelerations(positions, velocities, pval)
+
+	return positions, velocities, accelerations
+end
+
+# ╔═╡ 27ddfe17-fd77-43a1-9332-b4589bb37bdf
+begin
+	pval = [0.1, 2.0]
+	positions, velocities, accelerations = compute_values(pval)
+end
+
+# ╔═╡ 358e4e01-556a-46af-87e0-521ca310435b
+begin
+	t_vals = range(0, stop=2*pi/pval[2], length=length(positions))
+	pos_mat = hcat(positions...)'
+	px = Plots.plot(
+	    t_vals,
+	    pos_mat[:, [Rx1, Rx2, Rx3]],
+	    xlabel="t (sec)",
+	    ylabel="X Position (m)",
+	    title="X Positions of 3 Bodies vs Time",
+	    label=["Rx1" "Rx2" "Rx3"],
+	    legend=:topright
+	)
+	py = Plots.plot(
+	    t_vals,
+	    pos_mat[:, [Ry1, Ry2, Ry3]],
+	    xlabel="t (sec)",
+	    ylabel="Y Position (m)",
+	    title="Y Positions of 3 Bodies vs Time",
+	    label=["Ry1" "Ry2" "Ry3"],
+	    legend=:topright
+	)
+	vel_mat = hcat(velocities...)'
+	vx = Plots.plot(
+	    t_vals,
+	    vel_mat[:, [Rx1, Rx2, Rx3]],
+	    xlabel="t (sec)",
+	    ylabel="X Velocity (m/s)",
+	    title="X Velocities of 3 Bodies vs Time",
+	    label=["Vx1" "Vx2" "Vx3"],
+	    legend=:topright
+	)
+	vy = Plots.plot(
+	    t_vals,
+	    vel_mat[:, [Ry1, Ry2, Ry3]],
+	    xlabel="t (sec)",
+	    ylabel="Y Velocity (m/s)",
+	    title="Y Velocities of 3 Bodies vs Time",
+	    label=["Vy1" "Vy2" "Vy3"],
+	    legend=:topright
+	)
+	acc_mat = hcat(accelerations...)'
+	ax = Plots.plot(
+	    t_vals,
+	    acc_mat[:, [Rx1, Rx2, Rx3]],
+	    xlabel="t (sec)",
+	    ylabel="X Acceleration (m/s/s)",
+	    title="X Accelerations of 3 Bodies vs Time",
+	    label=["Ax1" "Ax2" "Ax3"],
+	    legend=:topright
+	)
+	ay = Plots.plot(
+	    t_vals,
+	    acc_mat[:, [Ry1, Ry2, Ry3]],
+	    xlabel="t (sec)",
+	    ylabel="Y Acceleration (m/s/s)",
+	    title="Y Accelerations of 3 Bodies vs Time",
+	    label=["Ay1" "Ay2" "Ay3"],
+	    legend=:topright
+	)
+	plot(px, py, vx, vy, ax, ay, layout=(3,2), size=(800,700))
+end
 
 # ╔═╡ be8f272c-8cac-49d2-866a-c462f79127c2
 function animate_double_slider(solutions; filename="double_slider.gif")
@@ -320,7 +481,7 @@ function animate_double_slider(solutions; filename="double_slider.gif")
 end
 
 # ╔═╡ 0e75b292-98a9-42ed-8e45-d503d6422c2e
-animate_double_slider(solution)
+animate_double_slider(positions)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -345,7 +506,7 @@ Symbolics = "~7.8.0"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.4"
+julia_version = "1.12.5"
 manifest_format = "2.0"
 project_hash = "06a26ad5d9b4143877f561fa66cf48990542ebb6"
 
@@ -3350,7 +3511,7 @@ version = "1.13.0+0"
 # ╔═╡ Cell order:
 # ╟─f17103ea-06bf-11f1-a2b0-79e68ed152eb
 # ╠═4cb60cfa-b688-4298-af98-d20ed38728e2
-# ╟─829e8d21-126c-4fde-acba-bb7ef4f19a06
+# ╠═829e8d21-126c-4fde-acba-bb7ef4f19a06
 # ╟─0d9be664-d7c5-4084-add2-25e5418742d6
 # ╠═ff4cce5d-0823-46f8-b28e-24735797eb31
 # ╟─8ee16c64-3111-44e5-86e6-3731cfbe753a
@@ -3358,12 +3519,20 @@ version = "1.13.0+0"
 # ╟─c9b67bfa-0866-4f70-9594-6e8cb1dbdb69
 # ╟─7f826175-5309-4557-b70a-98661fa2db0b
 # ╟─5dfe5714-16be-4a2e-baf5-799f1d7aa46b
-# ╠═0ca25147-769e-481b-a60f-67bae630f75b
+# ╟─0ca25147-769e-481b-a60f-67bae630f75b
 # ╟─6f5245e4-973c-4927-b814-c4de5f3648d7
 # ╠═fb181be8-310b-4482-8444-ae07aae08ebc
-# ╠═0b970fb1-5aa5-4cd2-86a6-a96331b89cc2
-# ╠═d0916324-f83f-4625-a3cf-cd915f67f668
-# ╠═8e668c28-2010-41c1-8880-7f929f90966e
+# ╟─d0916324-f83f-4625-a3cf-cd915f67f668
+# ╟─264ca81d-612c-4ea9-98cf-df9fb8235899
+# ╟─cc50f6b6-436f-4265-80f9-c798681782fe
+# ╟─c609bc41-3d96-44a8-afa4-086aa68808e2
+# ╠═c8384dee-1f8f-4a4b-bf92-02c9580c72e5
+# ╟─b512cb1e-6683-43b4-8908-622e5715d32a
+# ╠═eb4a86c2-f82b-4e05-8ce2-a4b8f124919a
+# ╠═36b0101c-c348-458d-be44-745ee40fcb6c
+# ╠═c439916d-e97d-4b97-a486-2d4dcaa73f3d
+# ╠═27ddfe17-fd77-43a1-9332-b4589bb37bdf
+# ╟─358e4e01-556a-46af-87e0-521ca310435b
 # ╟─be8f272c-8cac-49d2-866a-c462f79127c2
 # ╠═0e75b292-98a9-42ed-8e45-d503d6422c2e
 # ╟─00000000-0000-0000-0000-000000000001
