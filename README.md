@@ -5,6 +5,7 @@
 # Group Members:
 * [Jimmy Padilla](mailto:jpj22002@uconn.edu)
 * [My Nguyen](mailto:my.nguyen@uconn.edu)
+* [Eric Dillner](mailto:eric.dillner@uconn.edu)
 
 # Project_02 - Multibody kinematic modeling
 
