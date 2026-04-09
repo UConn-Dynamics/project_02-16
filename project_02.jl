@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.20.23
+# v0.20.21
 
 using Markdown
 using InteractiveUtils
@@ -451,6 +451,157 @@ function capsule(p1, p2, width; npts=20)
     return xs, ys
 end
 
+# ╔═╡ e75c61bc-36ac-4d42-aa91-4c80ce5a3d47
+md"""
+## Cases
+
+### Baseline Parameters
+
+To establish a control, the system is evaluated using the following parameters:
+
+- Coupler length: $l_3 = 0.1 ~ m$
+- Angular velocity of the bar: $ω_3 = 2.0 ~ rad/s$
+- Slot center location: $x_c = 0.0 ~ m$, $y_c = 0.0 ~ m$
+- Slot angle orientations: $a_1 = π/4 ~ rad$, $a_2 = -π/4 ~ rad$
+- Initial bar angle: $θ_{3,0} = π/2 ~ rad$
+
+### Parameterized Studies
+
+To investigate the effects of different system parameters on kinematic behavior, the following cases were studied:
+
+#### 1. Effect of coupler length:
+- Large coupler: $l_3 = 0.2 ~ m$
+- Short coupler: $l_3 = 0.05 ~ m$
+
+#### 2. Effect of slot orientation:
+- Narrow coupler angle: $a_1 = 60^\circ$, $a_2 = -60^\circ$
+- Extreme narrow coupler angle: $a_1 = 80^\circ$, $a_2 = -80^\circ$
+- Asymmetric coupler angle: $a_1 = 10^\circ$, $a_2 = 80^\circ$
+"""
+
+# ╔═╡ 464f3061-6238-4f84-b339-9f1b150e7ae6
+md"""
+## Plotting
+"""
+
+# ╔═╡ 5f284bfc-17f1-4f27-8a76-89fbdfaf3356
+function plot_full_time_histories(case_names, all_positions, all_velocities, all_acc_arrays, all_times; bigtitle="")
+    coords = [Rx1, Ry1, Rx2, Ry2, Rx3, Ry3]
+    coord_labels = ["Rx1","Ry1","Rx2","Ry2","Rx3","Ry3"]
+    var_types = ["Position","Velocity","Acceleration"]
+    
+    nrows = length(coords)
+    ncols = length(var_types)
+    
+    plt = plot(layout=(nrows,ncols), size=(1200,1800), xlabel="Time [s]")
+    
+    for (row, coord) in enumerate(coords)
+        for (col, var_type) in enumerate(var_types)
+            p = plt[row, col]
+            for cname in case_names
+                time = all_times[cname]
+                data = var_type=="Position" ? [qv[coord] for qv in all_positions[cname]] :
+                       var_type=="Velocity" ? [qv[coord] for qv in all_velocities[cname]] :
+                                              [qv[coord] for qv in all_acc_arrays[cname]]
+                plot!(p, time, data, label=cname)
+            end
+            # ylabel!(p, var_type)
+            title!(p, "$(coord_labels[row]) | $(var_type)")
+        end
+    end
+	
+	if !isempty(bigtitle)
+    	plot!(plt, suptitle=bigtitle)
+	end
+	
+    return plt
+end
+
+# ╔═╡ bd92c72f-848d-4c94-a49d-88b2dfd6acac
+function plot_coupler_traces(case_names, all_positions)
+    plt = plot(title="Body 3 Coupler Trace (Rx3 vs Ry3)",
+               xlabel="Rx3 (m)", ylabel="Ry3 (m)",
+               aspect_ratio=:equal, legend=:topright)
+    for cname in case_names
+		positions = all_positions[cname]
+        pos_mat = hcat(positions...)'
+        plot!(plt, pos_mat[:, Rx3], pos_mat[:, Ry3], lw=2, label=cname)
+    end
+    return plt
+end
+
+# ╔═╡ b31a7ae4-262f-4f44-ab15-0e37804bc6fb
+md"""
+# Animations
+
+### Baseline case:
+"""
+
+# ╔═╡ 3ad1b6c9-ce2e-4c93-a4c1-ed230429f121
+md"""
+### 1. Effect of coupler length:
+"""
+
+# ╔═╡ c5ca0a7b-ad53-4503-86d3-33a32eec2e2b
+md"""
+### 2. Effect of slot orientation:
+"""
+
+# ╔═╡ 40adb92f-86b6-43f6-bd8c-99ffb87c9eae
+md"""
+## Analysis of Results
+
+The observed kinematic behavior can be explained directly from the constraint formulation and the imposed rotational motion of the coupler.
+
+---
+
+### Influence of Coupler Length $l_3$
+
+The position constraints show that slider locations depend on the terms $\frac{l_3}{2}\cos(\theta_3)$ and $\frac{l_3}{2}\sin(\theta_3)$. As $l_3$ increases, these terms scale proportionally, leading to larger positional changes of the sliders.
+
+Since velocity and acceleration are obtained through time differentiation, they are also directly affected:
+- Velocity scales with $\dot{\theta}_3$
+- Acceleration scales with $\dot{\theta}_3^2$
+
+This explains why longer coupler lengths produce larger motion amplitude, higher velocities, and stronger acceleration peaks.
+
+---
+
+### Effect of Slot Orientation
+
+The prismatic constraints restrict motion to a line defined by slot angles. When the angles are symmetric ($\pm 45^\circ$), the constraints are balanced, resulting in symmetric motion of both sliders.
+
+For increased symmetric angles (±60°, ±75°, etc.):
+- The constraint directions become steeper, requiring larger slider displacements to follow under bar rotation
+- Velocity and acceleration amplitudes scale nonlinearly as $a$ approaches 90°
+
+For asymmetric angles, the constraint directions differ, causing:
+- Unequal projection of motion along each slot
+- Distorted coupler trajectory
+- Different motion ranges for each slider
+
+This explains the skewed shape observed in the coupler trace.
+
+---
+
+### Origin of Nonlinear Acceleration
+
+Acceleration results include terms proportional to $\dot{\theta}_3^2$, which arise from differentiating trigonometric functions in the constraint equations. These represent centripetal effects due to the rotating coupler.
+
+As a result:
+- Acceleration peaks occur when the bar direction changes most rapidly
+- The response is nonlinear even though the input rotation is constant
+
+---
+
+### Periodicity and System Behavior
+
+Because the input motion is a constant angular velocity, the system exhibits periodic behavior. All positions, velocities, and accelerations repeat after one full rotation.
+
+The closed-loop coupler traces confirm that the system is kinematically consistent and that the numerical solution remains stable over time.
+
+"""
+
 # ╔═╡ 4bd9bace-f235-40f4-91ef-0d514be92184
 # Creates a velocity vector arrow
 function draw_velocity_arrow!(x, y, vx, vy; scale=0.15, color)
@@ -467,7 +618,7 @@ function format_velocity_text(label, velocity_x, velocity_y)
 end
 
 # ╔═╡ 7b7c175a-9e9d-4096-9795-89be14e390d3
-function animate_double_slider(positions, parameter_values; title_name="Double Slider Crank", filename=nothing, fps=30)
+function animate_double_slider(positions, velocities, parameter_values; title_name="Double Slider Crank", filename=nothing, fps=30)
     coupler_length, _, xc, yc, a1, a2, _ = parameter_values
     direction1 = (cos(a1), sin(a1))
     direction2 = (cos(a2), sin(a2))
@@ -543,7 +694,7 @@ function animate_double_slider(positions, parameter_values; title_name="Double S
 		    color=:blue4)
 		
 		# --- VELOCITY VALUE OVERLAY ---		
-		text_x = xc + 0.21
+		text_x = xc + 0.19
 		text_y = yc + 0.16
 		line_spacing = 0.07
 		
@@ -583,34 +734,6 @@ function animate_double_slider(positions, parameter_values; title_name="Double S
 
 	return filename === nothing ? gif(anim; fps=fps) : gif(anim, filename; fps=fps)
 end
-
-# ╔═╡ e75c61bc-36ac-4d42-aa91-4c80ce5a3d47
-md"""
-## Cases
-
-### Baseline Parameters
-
-To establish a control, the system is evaluated using the following parameters:
-
-- Coupler length: $l_3 = 0.1 ~ m$
-- Angular velocity of the bar: $ω_3 = 2.0 ~ rad/s$
-- Slot center location: $x_c = 0.0 ~ m$, $y_c = 0.0 ~ m$
-- Slot angle orientations: $a_1 = π/4 ~ rad$, $a_2 = -π/4 ~ rad$
-- Initial bar angle: $θ_{3,0} = π/2 ~ rad$
-
-### Parameterized Studies
-
-To investigate the effects of different system parameters on kinematic behavior, the following cases were studied:
-
-#### 1. Effect of coupler length:
-- Large coupler: $l_3 = 0.2 ~ m$
-- Short coupler: $l_3 = 0.05 ~ m$
-
-#### 2. Effect of slot orientation:
-- Narrow coupler angle: $a_1 = 60^\circ$, $a_2 = -60^\circ$
-- Extreme narrow coupler angle: $a_1 = 80^\circ$, $a_2 = -80^\circ$
-- Asymmetric coupler angle: $a_1 = 10^\circ$, $a_2 = 80^\circ$
-"""
 
 # ╔═╡ 96a1dcb1-2566-4945-9272-be330949011f
 begin 
@@ -653,57 +776,6 @@ begin
 	end
 end
 
-# ╔═╡ 464f3061-6238-4f84-b339-9f1b150e7ae6
-md"""
-## Plotting
-"""
-
-# ╔═╡ 5f284bfc-17f1-4f27-8a76-89fbdfaf3356
-function plot_full_time_histories(case_names, all_positions, all_velocities, all_acc_arrays, all_times; bigtitle="")
-    coords = [Rx1, Ry1, Rx2, Ry2, Rx3, Ry3]
-    coord_labels = ["Rx1","Ry1","Rx2","Ry2","Rx3","Ry3"]
-    var_types = ["Position","Velocity","Acceleration"]
-    
-    nrows = length(coords)
-    ncols = length(var_types)
-    
-    plt = plot(layout=(nrows,ncols), size=(1200,1800), xlabel="Time [s]")
-    
-    for (row, coord) in enumerate(coords)
-        for (col, var_type) in enumerate(var_types)
-            p = plt[row, col]
-            for cname in case_names
-                time = all_times[cname]
-                data = var_type=="Position" ? [qv[coord] for qv in all_positions[cname]] :
-                       var_type=="Velocity" ? [qv[coord] for qv in all_velocities[cname]] :
-                                              [qv[coord] for qv in all_acc_arrays[cname]]
-                plot!(p, time, data, label=cname)
-            end
-            ylabel!(p, var_type)
-            title!(p, "$(coord_labels[row]) | $(var_type)")
-        end
-    end
-	
-	if !isempty(bigtitle)
-    	plot!(plt, suptitle=bigtitle)
-	end
-	
-    return plt
-end
-
-# ╔═╡ bd92c72f-848d-4c94-a49d-88b2dfd6acac
-function plot_coupler_traces(case_names, all_positions)
-    plt = plot(title="Body 3 Coupler Trace (Rx3 vs Ry3)",
-               xlabel="Rx3 (m)", ylabel="Ry3 (m)",
-               aspect_ratio=:equal, legend=:topright)
-    for cname in case_names
-		positions = all_positions[cname]
-        pos_mat = hcat(positions...)'
-        plot!(plt, pos_mat[:, Rx3], pos_mat[:, Ry3], lw=2, label=cname)
-    end
-    return plt
-end
-
 # ╔═╡ a8405e93-d533-4c31-9579-29c8c88b96c0
 begin
 	case_names = [c.name for c in cases]
@@ -728,31 +800,14 @@ begin
 	coupler_plot
 end
 
-# ╔═╡ b31a7ae4-262f-4f44-ab15-0e37804bc6fb
-md"""
-# Animations
-
-### Baseline case:
-"""
-
 # ╔═╡ b07a0aad-29f7-4c66-a28f-7773092afe9a
 animations["Baseline"]
-
-# ╔═╡ 3ad1b6c9-ce2e-4c93-a4c1-ed230429f121
-md"""
-### 1. Effect of coupler length:
-"""
 
 # ╔═╡ 4df7c7f4-5b95-4ff1-8207-f16cf028dd07
 animations["Large l₃"]
 
 # ╔═╡ 2f010ba5-0af3-42be-b320-e88cd696efd0
 animations["Short l₃"]
-
-# ╔═╡ c5ca0a7b-ad53-4503-86d3-33a32eec2e2b
-md"""
-### 2. Effect of slot orientation:
-"""
 
 # ╔═╡ 7e56af48-3c47-45f8-8622-b2c125c18c01
 animations["Narrow Slot"]
@@ -762,61 +817,6 @@ animations["Ext. Narrow Slot"]
 
 # ╔═╡ 2f1b87aa-319f-4014-9cb9-d5ce8ab89850
 animations["Asym. Slot"]
-
-# ╔═╡ 40adb92f-86b6-43f6-bd8c-99ffb87c9eae
-md"""
-## Analysis of Results
-
-The observed kinematic behavior can be explained directly from the constraint formulation and the imposed rotational motion of the coupler.
-
----
-
-### Influence of Coupler Length $l_3$
-
-The position constraints show that slider locations depend on the terms $\frac{l_3}{2}\cos(\theta_3)$ and $\frac{l_3}{2}\sin(\theta_3)$. As $l_3$ increases, these terms scale proportionally, leading to larger positional changes of the sliders.
-
-Since velocity and acceleration are obtained through time differentiation, they are also directly affected:
-- Velocity scales with $\dot{\theta}_3$
-- Acceleration scales with $\dot{\theta}_3^2$
-
-This explains why longer coupler lengths produce larger motion amplitude, higher velocities, and stronger acceleration peaks.
-
----
-
-### Effect of Slot Orientation
-
-The prismatic constraints restrict motion to a line defined by slot angles. When the angles are symmetric ($\pm 45^\circ$), the constraints are balanced, resulting in symmetric motion of both sliders.
-
-For increased symmetric angles (±60°, ±75°, etc.):
-- The constraint directions become steeper, requiring larger slider displacements to follow under bar rotation
-- Velocity and acceleration amplitudes scale nonlinearly as $a$ approaches 90°
-
-For asymmetric angles, the constraint directions differ, causing:
-- Unequal projection of motion along each slot
-- Distorted coupler trajectory
-- Different motion ranges for each slider
-
-This explains the skewed shape observed in the coupler trace.
-
----
-
-### Origin of Nonlinear Acceleration
-
-Acceleration results include terms proportional to $\dot{\theta}_3^2$, which arise from differentiating trigonometric functions in the constraint equations. These represent centripetal effects due to the rotating coupler.
-
-As a result:
-- Acceleration peaks occur when the bar direction changes most rapidly
-- The response is nonlinear even though the input rotation is constant
-
----
-
-### Periodicity and System Behavior
-
-Because the input motion is a constant angular velocity, the system exhibits periodic behavior. All positions, velocities, and accelerations repeat after one full rotation.
-
-The closed-loop coupler traces confirm that the system is kinematically consistent and that the numerical solution remains stable over time.
-
-"""
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -842,7 +842,7 @@ Symbolics = "~7.8.0"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.4"
+julia_version = "1.12.5"
 manifest_format = "2.0"
 project_hash = "5facd741af61aab8f301ab8c520a11f29c2d8995"
 
@@ -1468,10 +1468,10 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.9.5"
 
 [[deps.DomainSets]]
-deps = ["CompositeTypes", "FunctionMaps", "IntervalSets", "LinearAlgebra", "StaticArrays"]
-git-tree-sha1 = "4599e0cd684f3ff6cbbab73c77553a3d01a8d74d"
+deps = ["CompositeTypes", "IntervalSets", "LinearAlgebra", "StaticArrays"]
+git-tree-sha1 = "c249d86e97a7e8398ce2068dce4c078a1c3464de"
 uuid = "5b8099bc-c8ec-5219-889f-1d9e522a28bf"
-version = "0.7.18"
+version = "0.7.16"
 
     [deps.DomainSets.extensions]
     DomainSetsMakieExt = "Makie"
@@ -1691,12 +1691,6 @@ git-tree-sha1 = "7a214fdac5ed5f59a22c2d9a885a16da1c74bbc7"
 uuid = "559328eb-81f9-559d-9380-de523a88c83c"
 version = "1.0.17+0"
 
-[[deps.FunctionMaps]]
-deps = ["CompositeTypes", "LinearAlgebra", "StaticArrays"]
-git-tree-sha1 = "31bd99a57edf98990d1c21486032963955450e8d"
-uuid = "a85aefff-f8ca-4649-a888-c8e5398bc76c"
-version = "0.1.2"
-
 [[deps.FunctionWrappers]]
 git-tree-sha1 = "d62485945ce5ae9c0c48f124a84998d755bae00e"
 uuid = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
@@ -1887,9 +1881,9 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 version = "1.11.0"
 
 [[deps.IntervalSets]]
-git-tree-sha1 = "79d6bd28c8d9bccc2229784f1bd637689b256377"
+git-tree-sha1 = "d966f85b3b7a8e49d034d27a189e9a4874b4391a"
 uuid = "8197267c-284f-5f27-9208-e0e47529a953"
-version = "0.7.14"
+version = "0.7.13"
 weakdeps = ["Random", "RecipesBase", "Statistics"]
 
     [deps.IntervalSets.extensions]
@@ -2143,9 +2137,9 @@ version = "1.12.0"
 
 [[deps.LinearSolve]]
 deps = ["ArrayInterface", "ConcreteStructs", "DocStringExtensions", "EnumX", "GPUArraysCore", "InteractiveUtils", "Krylov", "Libdl", "LinearAlgebra", "MKL_jll", "Markdown", "OpenBLAS_jll", "PrecompileTools", "Preferences", "RecursiveArrayTools", "Reexport", "SciMLBase", "SciMLLogging", "SciMLOperators", "Setfield", "StaticArraysCore"]
-git-tree-sha1 = "4937c5c67232ce294db484448713a822b4c005cf"
+git-tree-sha1 = "7652309d5839b0477a8c5a1d5142d6ebb36864f6"
 uuid = "7ed4a6bd-45f5-4d41-b270-4a48e9bafcae"
-version = "3.71.0"
+version = "3.70.0"
 
     [deps.LinearSolve.extensions]
     LinearSolveAMDGPUExt = "AMDGPU"
@@ -2373,9 +2367,9 @@ version = "0.2.4"
 
 [[deps.MultivariatePolynomials]]
 deps = ["DataStructures", "LinearAlgebra", "MutableArithmetics", "StarAlgebras"]
-git-tree-sha1 = "b45f1ed8448ea20885cb4c5029c2a462fe2682bf"
+git-tree-sha1 = "c8bb2474214f7e3caef33c522fb3d53c392ea8fe"
 uuid = "102ac46a-7ee4-5c85-9060-abc95bfdeaa3"
-version = "0.5.17"
+version = "0.5.16"
 
     [deps.MultivariatePolynomials.extensions]
     MultivariatePolynomialsChainRulesCoreExt = "ChainRulesCore"
@@ -2611,9 +2605,9 @@ version = "1.24.0"
 
 [[deps.OrdinaryDiffEqCore]]
 deps = ["ADTypes", "Accessors", "Adapt", "ArrayInterface", "ConcreteStructs", "DataStructures", "DiffEqBase", "DocStringExtensions", "EnumX", "EnzymeCore", "FastBroadcast", "FastClosures", "FastPower", "FunctionWrappersWrappers", "InteractiveUtils", "LinearAlgebra", "Logging", "MacroTools", "MuladdMacro", "Polyester", "PrecompileTools", "Preferences", "Random", "RecursiveArrayTools", "Reexport", "SciMLBase", "SciMLLogging", "SciMLOperators", "SciMLStructures", "Static", "StaticArraysCore", "SymbolicIndexingInterface", "TruncatedStacktraces"]
-git-tree-sha1 = "b85ff46f8ca4c8aa5aac6c22f99e3b54abba8b51"
+git-tree-sha1 = "73e431f66fb9854474c0bec1c11053e8889629c1"
 uuid = "bbf590c4-e513-4bbe-9b18-05decba2e5d8"
-version = "3.28.0"
+version = "3.27.0"
 
     [deps.OrdinaryDiffEqCore.extensions]
     OrdinaryDiffEqCoreMooncakeExt = "Mooncake"
@@ -3328,9 +3322,9 @@ version = "0.3.0"
 
 [[deps.StateSelection]]
 deps = ["BipartiteGraphs", "DocStringExtensions", "FindFirstFunctions", "Graphs", "LinearAlgebra", "OrderedCollections", "Setfield", "SparseArrays"]
-git-tree-sha1 = "a09c34b564f56f689f42f50e97c3a8dae35344ad"
+git-tree-sha1 = "b1eaa7fb4398d56e1e186265eb42aa50ea5e2487"
 uuid = "64909d44-ed92-46a8-bbd9-f047dfbdc84b"
-version = "1.9.1"
+version = "1.9.0"
 
     [deps.StateSelection.extensions]
     StateSelectionDeepDiffsExt = "DeepDiffs"
@@ -3561,9 +3555,9 @@ version = "1.1.0"
 
 [[deps.SymbolicUtils]]
 deps = ["AbstractTrees", "ArrayInterface", "Combinatorics", "ConstructionBase", "DataStructures", "Dictionaries", "DocStringExtensions", "DynamicPolynomials", "EnumX", "ExproniconLite", "Graphs", "LinearAlgebra", "MacroTools", "Moshi", "MultivariatePolynomials", "MutableArithmetics", "NaNMath", "PrecompileTools", "ReadOnlyArrays", "Setfield", "SparseArrays", "SpecialFunctions", "StaticArraysCore", "SymbolicIndexingInterface", "TaskLocalValues", "TermInterface", "WeakCacheSets"]
-git-tree-sha1 = "401be13a018d600eda47d6b9e74dc7155b2758cf"
+git-tree-sha1 = "009855d6fa1249fde0c704eedc27f01bbe394379"
 uuid = "d1185830-fcd6-423d-90d6-eec64667417b"
-version = "4.23.0"
+version = "4.22.0"
 
     [deps.SymbolicUtils.extensions]
     SymbolicUtilsChainRulesCoreExt = "ChainRulesCore"
@@ -4002,7 +3996,7 @@ version = "1.13.0+0"
 # ╟─a6611ed0-0e5e-403d-91f2-a24ce2d6e0ab
 # ╟─f33ab0c6-a69a-4beb-9085-dc1ebc229ff1
 # ╟─8ee16c64-3111-44e5-86e6-3731cfbe753a
-# ╠═24ac663e-cde4-4b70-879f-a42be1dc67ac
+# ╟─24ac663e-cde4-4b70-879f-a42be1dc67ac
 # ╟─c9b67bfa-0866-4f70-9594-6e8cb1dbdb69
 # ╟─7f826175-5309-4557-b70a-98661fa2db0b
 # ╟─5dfe5714-16be-4a2e-baf5-799f1d7aa46b
@@ -4014,13 +4008,15 @@ version = "1.13.0+0"
 # ╠═3f56e210-5a55-4a6b-a48d-37dbd9318fa4
 # ╟─264ca81d-612c-4ea9-98cf-df9fb8235899
 # ╠═c8384dee-1f8f-4a4b-bf92-02c9580c72e5
-# ╠═b512cb1e-6683-43b4-8908-622e5715d32a
+# ╟─b512cb1e-6683-43b4-8908-622e5715d32a
 # ╠═eb4a86c2-f82b-4e05-8ce2-a4b8f124919a
 # ╠═58a80f26-d769-460d-bcd2-e0fc4e19a240
 # ╟─54677311-0e83-491b-a34b-26e2bf8a6e69
 # ╟─79506113-f921-44e8-b948-f2d2fb597c14
 # ╟─4553ddb1-9415-4617-8002-87f1c49917c3
-# ╠═7b7c175a-9e9d-4096-9795-89be14e390d3
+# ╟─4bd9bace-f235-40f4-91ef-0d514be92184
+# ╟─a15216d2-5eec-4c1c-bc2d-5fde0451f430
+# ╟─7b7c175a-9e9d-4096-9795-89be14e390d3
 # ╟─e75c61bc-36ac-4d42-aa91-4c80ce5a3d47
 # ╟─96a1dcb1-2566-4945-9272-be330949011f
 # ╟─464f3061-6238-4f84-b339-9f1b150e7ae6
@@ -4028,16 +4024,16 @@ version = "1.13.0+0"
 # ╟─bd92c72f-848d-4c94-a49d-88b2dfd6acac
 # ╟─a8405e93-d533-4c31-9579-29c8c88b96c0
 # ╟─a7f8dfbd-c633-4a06-8ce8-b185258245d4
-# ╠═843f2bf4-1954-4408-a2bb-4e19839b42da
+# ╟─843f2bf4-1954-4408-a2bb-4e19839b42da
 # ╟─b31a7ae4-262f-4f44-ab15-0e37804bc6fb
-# ╠═b07a0aad-29f7-4c66-a28f-7773092afe9a
+# ╟─b07a0aad-29f7-4c66-a28f-7773092afe9a
 # ╟─3ad1b6c9-ce2e-4c93-a4c1-ed230429f121
-# ╠═4df7c7f4-5b95-4ff1-8207-f16cf028dd07
-# ╠═2f010ba5-0af3-42be-b320-e88cd696efd0
+# ╟─4df7c7f4-5b95-4ff1-8207-f16cf028dd07
+# ╟─2f010ba5-0af3-42be-b320-e88cd696efd0
 # ╟─c5ca0a7b-ad53-4503-86d3-33a32eec2e2b
-# ╠═7e56af48-3c47-45f8-8622-b2c125c18c01
-# ╠═22e79980-c055-4983-a238-a874b8be16f8
-# ╠═2f1b87aa-319f-4014-9cb9-d5ce8ab89850
-# ╠═40adb92f-86b6-43f6-bd8c-99ffb87c9eae
+# ╟─7e56af48-3c47-45f8-8622-b2c125c18c01
+# ╟─22e79980-c055-4983-a238-a874b8be16f8
+# ╟─2f1b87aa-319f-4014-9cb9-d5ce8ab89850
+# ╟─40adb92f-86b6-43f6-bd8c-99ffb87c9eae
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
