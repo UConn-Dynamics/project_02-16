@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ 4cb60cfa-b688-4298-af98-d20ed38728e2
-using Symbolics, ModelingToolkit, DifferentialEquations, Plots, Latexify, NLsolve
+using Symbolics, ModelingToolkit, DifferentialEquations, Plots, Latexify, NLsolve, Printf
 
 # ╔═╡ f17103ea-06bf-11f1-a2b0-79e68ed152eb
 md"""# Project_02 - Multibody kinematic modeling
@@ -451,6 +451,21 @@ function capsule(p1, p2, width; npts=20)
     return xs, ys
 end
 
+# ╔═╡ 4bd9bace-f235-40f4-91ef-0d514be92184
+# Creates a velocity vector arrow
+function draw_velocity_arrow!(x, y, vx, vy; scale=0.15, color)
+    quiver!([x], [y], quiver=([scale*vx], [scale*vy]), c=color, lw=1.5)
+end
+
+# ╔═╡ a15216d2-5eec-4c1c-bc2d-5fde0451f430
+# Format velocity values for overlaying into animations
+function format_velocity_text(label, velocity_x, velocity_y)
+    return @sprintf(
+        "%s\nvx = % .4f m/s\nvy = % .4f m/s",
+        label, velocity_x, velocity_y
+    )
+end
+
 # ╔═╡ 7b7c175a-9e9d-4096-9795-89be14e390d3
 function animate_double_slider(positions, parameter_values; title_name="Double Slider Crank", filename=nothing, fps=30)
     coupler_length, _, xc, yc, a1, a2, _ = parameter_values
@@ -470,7 +485,7 @@ function animate_double_slider(positions, parameter_values; title_name="Double S
     x3_hist = Float64[]
     y3_hist = Float64[]
 	
-    anim = @animate for qv in positions
+    anim = @animate for (qv, qdot) in zip(positions, velocities)
         push!(x3_hist, qv[Rx3]); push!(y3_hist, qv[Ry3])
 		
         plot(xlim=(xc-lim, xc+lim), ylim=(yc-lim, yc+lim),
@@ -507,6 +522,63 @@ function animate_double_slider(positions, parameter_values; title_name="Double S
 	
 	    # --- TRACE ---
 	    plot!(x3_hist, y3_hist, ls=:dash, lw=2, c=:orange)
+		
+		# --- VELOCITY VECTORS ---
+		# Slider 1 velocity
+		draw_velocity_arrow!(
+		    qv[Rx1], qv[Ry1],
+		    qdot[Rx1], qdot[Ry1];
+		    color=:red4)
+		
+		# Slider 2 velocity
+		draw_velocity_arrow!(
+		    qv[Rx2], qv[Ry2],
+		    qdot[Rx2], qdot[Ry2];
+		    color=:green4)	
+		
+		# Coupler center velocity
+		draw_velocity_arrow!(
+		    qv[Rx3], qv[Ry3],
+		    qdot[Rx3], qdot[Ry3];
+		    color=:blue4)
+		
+		# --- VELOCITY VALUE OVERLAY ---		
+		text_x = xc + 0.21
+		text_y = yc + 0.16
+		line_spacing = 0.07
+		
+		annotate!(
+		    text_x,
+		    text_y,
+		    text(
+		        format_velocity_text("Slider 1", qdot[Rx1], qdot[Ry1]),
+		        9,
+		        :red,
+		        :left
+		    )
+		)
+		
+		annotate!(
+		    text_x,
+		    text_y - line_spacing,
+		    text(
+		        format_velocity_text("Slider 2", qdot[Rx2], qdot[Ry2]),
+		        9,
+		        :green,
+		        :left
+		    )
+		)
+		
+		annotate!(
+		    text_x,
+		    text_y - 2*line_spacing,
+		    text(
+		        format_velocity_text("Coupler", qdot[Rx3], qdot[Ry3]),
+		        9,
+		        :blue,
+		        :left
+		    )
+		)
 	end
 
 	return filename === nothing ? gif(anim; fps=fps) : gif(anim, filename; fps=fps)
@@ -572,7 +644,7 @@ begin
 	
 	    # Animate and save GIF
 	    animations[c.name] = animate_double_slider(
-	        positions, 
+	        positions, velocities,
 	        [c.l3, c.bar_rate, c.xc, c.yc, c.a1, c.a2, c.theta3]; 
 			title_name=c.name,
 	        filename="double_slider_$(replace(c.name, r"[ /]" => "_")).gif", 
@@ -754,6 +826,7 @@ Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 NLsolve = "2774e3e8-f4cf-5e23-947b-6d7e65073b56"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 
 [compat]
@@ -761,7 +834,7 @@ DifferentialEquations = "~7.17.0"
 Latexify = "~0.16.10"
 ModelingToolkit = "~11.7.2"
 NLsolve = "~4.5.1"
-Plots = "~1.41.5"
+Plots = "~1.41.6"
 Symbolics = "~7.8.0"
 """
 
@@ -769,9 +842,9 @@ Symbolics = "~7.8.0"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.5"
+julia_version = "1.12.4"
 manifest_format = "2.0"
-project_hash = "06a26ad5d9b4143877f561fa66cf48990542ebb6"
+project_hash = "5facd741af61aab8f301ab8c520a11f29c2d8995"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "f7304359109c768cf32dc5fa2d371565bb63b68a"

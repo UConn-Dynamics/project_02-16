@@ -8,6 +8,7 @@
 * [Jay Yang](mailto:jay.yang@uconn.edu)
 * [Eric Dillner](mailto:eric.dillner@uconn.edu)
 * [Brice Liew](mailto:brice.liew@uconn.edu)
+* [Ameet Gambhirwala](mailto:ypj24004@uconn.edu)
 
 # Project_02 - Multibody kinematic modeling
 
